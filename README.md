@@ -15,6 +15,7 @@
             }
         }
 ```
+通过ConnectivityManager获取管理网络连接的系统服务类的实例，接下来再判断网络是否可用。
 注意事项：
 
 动态注册的广播接收器一定都要取消注册才行，这里我们是在 onDestroy()方法中通过调用 unregisterReceiver()方法来实现的。
