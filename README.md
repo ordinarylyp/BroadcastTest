@@ -122,7 +122,7 @@ Android 中的广播主要分两种类型：标准广播和有序广播。
             public void onClick(View v) {
               //定义intent
                 Intent intent=new Intent("lyp.com.broadcasttest.MY_BROADCAST");
-		//发送广播
+		//发送标准广播
 		sendBroadcast(intent);
             }
         });
@@ -159,3 +159,88 @@ public class AnotherBroadcastReceiver extends BroadcastReceiver {
 
 ![mybroadcast1](/img/mybroadcast1.png "mybroadcast1")
 ![mybroadcast2](/img/mybroadcast2.png "mybroadcast2")
+
+这表明我们应用程序发出的广播是可以被其他应用程序接收到的，不过到目前为止我们的广播还都只是标准的广播，接下来尝试有序广播
+
+首先修改[MainActivity](/app/src/main/java/lyp/com/broadcasttest/MainActivity.java)中的代码
+```Java
+protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        Button button=findViewById(R.id.button);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+              //定义intent
+                Intent intent=new Intent("lyp.com.broadcasttest.MY_BROADCAST");
+		//发送有序广播
+		 sendOrderedBroadcast(intent,null);
+            }
+        });
+    }
+```
+发送有序广播 sendOrderedBroadcast() 方法接收两个参数，第一个是 Intent，第二个是与权限相关的字符串，在这传 null 就行了。当然现在运行程序点击按钮两个应用程序还是会收到广播，接下来还需要修改[ AndroidManifest.xml](/app/src/main/AndroidManifest.xml) 文件中的标签<receiver>中的代码，设定广播接收器的先后顺序：
+```xml
+        <receiver
+            android:name=".MyBroadcastReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter android:priority="100">
+                <action android:name="lyp.com.broadcasttest.MY_BROADCAST"/>
+            </intent-filter>
+        </receiver>
+````
+上述代码，通过 android:priority 属性给广播接收器设置了优先级，优先级比较高的广播接收器就可以先收到广播。把 MyBroadcastReceiver 的优先级设成了 100，保证它一定会在 AnotherBroadcastReceiver 之前收到广播。
+
+接下来，修改 MyBroadcastReceiver 中的代码，设置是否允许广播继续传递。在 onReceive()方法中调用 abortBroadcast()方法，表示将这条广播截断，后面的广播接收器将无法再接收到这条广播。
+### 五、本地广播
+之前的广播都属于系统全局广播，这样的广播可以被其他任何应用程序接收到，也会接收到来自于其他应用程序的广播，造成安全上的问题。
+
+为了解决决这个问题就可以采用本地广播机制，而实现这个最主要就是通过LocalBroadcastManager来对广播进行管理，需要注意的是本地广播是需要动态注册的。
+对[MainActivity](/app/src/main/java/lyp/com/broadcasttest/MainActivity.java)中的代码修改如下：
+```Java
+public class MainActivity extends AppCompatActivity {
+
+    private IntentFilter intentFilter;
+    private LocalReceiver localReceiver;
+    private LocalBroadcastManager localBroadcastManager;//管理广播
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        localBroadcastManager = localBroadcastManager.getInstance(this);//获取实例
+        Button button=findViewById(R.id.button);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent=new Intent("lyp.com.broadcasttest.LOCAL_BROADCAST");
+                localBroadcastManager.sendBroadcast(intent);//发送本地广播
+            }
+        });
+        intentFilter=new IntentFilter(); // 创建 IntentFilter 实例
+        intentFilter.addAction("lyp.com.broadcasttest.LOCAL_BROADCAST");//添加广播值
+        localReceiver= new LocalReceiver(); // 创建 LocalReceiver 实例
+        localBroadcastManager.registerReceiver(localReceiver,intentFilter);//注册本地广播监听器
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        //取消注册    
+        localBroadcastManager.unregisterReceiver(localReceiver);
+
+    }
+
+    class LocalReceiver extends BroadcastReceiver{
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Toast.makeText(context,"收到本地广播",Toast.LENGTH_SHORT).show();
+        }
+    }
+ }
+
+```
+运行结果：
+
+![local](/img/local.png "local")
